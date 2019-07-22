@@ -149,3 +149,43 @@ curl http://localhost:4000
 
 
 ## Kubernetes Engine: Qwik Start
+```
+$ gcloud config list project
+[core]
+project = qwiklabs-gcp-gcpd-5a0d22780ec3
+Your active configuration is: [cloudshell-5386]
+```
+
+### Setting a default compute zone
+```
+gcloud config set compute/zone us-central1-a
+```
+
+### Create cluster
+```
+gcloud container clusters create mykube01
+```
+
+### Get authentication credentials for the cluster
+```
+$ gcloud container clusters get-credentials mykube01
+Fetching cluster endpoint and auth data.
+kubeconfig entry generated for mykube01.
+```
+
+### Deploying an application to the cluster
+```
+$ kubectl run hello-server --image=gcr.io/google-samples/hello-app:1.0 --port 8080
+```
+Expose it
+kubectl expose deployment hello-server --type="LoadBalancer"
+
+get details
+kubectl get service hello-server
+NAME           TYPE           CLUSTER-IP   EXTERNAL-IP      PORT(S)          AGE
+hello-server   LoadBalancer   10.0.5.52    35.239.160.169   8080:31523/TCP   82s
+
+Test with IP
+
+
+## 
