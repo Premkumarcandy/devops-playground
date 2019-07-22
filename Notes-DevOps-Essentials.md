@@ -25,9 +25,11 @@ Devlopers -> QA team -> Operations
 - Different Priorities
 - Different Goals
 - Developers focus on features but Operations focus on uptime.
-- Lengthy 
+- Lengthy process
+- Lacks of automation
 
 #### DevOps Way
+
 
 
 ### DevOps Practices
