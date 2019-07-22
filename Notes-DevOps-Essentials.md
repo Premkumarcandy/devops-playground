@@ -29,7 +29,11 @@ Devlopers -> QA team -> Operations
 - Lacks of automation
 
 #### DevOps Way
-
+- Dev writes code
+- Commit will trigger build and integration tests
+- QA can be automate
+- Automated monitoring
+- Auto-rollback previous version
 
 
 ### DevOps Practices
