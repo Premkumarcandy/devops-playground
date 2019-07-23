@@ -210,4 +210,216 @@ Create Deployment
 kubectl create deployment nginx --image=nginx:1.10.0
 ```
 
+Check pod status
+```
+kubectl get pods
+```
+Expose the service
+```
+kubectl expose deployment nginx --port 80 --type LoadBalancer
+```
+Behind the scenes Kubernetes created an external Load Balancer with a public IP address attached to it. Any client who hits that public IP address will be routed to the pods behind the service. In this case that would be the nginx pod.
+
+Check services
+```
+$ kubectl get services
+NAME         TYPE           CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP      10.0.0.1     <none>        443/TCP        8m41s
+nginx        LoadBalancer   10.0.11.62   <pending>     80:32594/TCP   40s
+```
+
+Check access using curl
+
+### Pods
+At the core of Kubernetes is the Pod.
+
+Pods represent and hold a collection of one or more containers. Generally, if you have multiple containers with a hard dependency on each other, you package the containers inside a single pod.
+```
+$ cat pods/monolith.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monolith
+  labels:
+    app: monolith
+spec:
+  containers:
+    - name: monolith
+      image: kelseyhightower/monolith:1.0.0
+      args:
+        - "-http=0.0.0.0:80"
+        - "-health=0.0.0.0:81"
+        - "-secret=secret"
+      ports:
+        - name: http
+          containerPort: 80
+        - name: health
+          containerPort: 81
+      resources:
+        limits:
+          cpu: 0.2
+          memory: "10Mi"
+```
+Create a pod
+```
+kubectl create -f pods/monolith.yaml
+```
+Describe pod
+```
+kubectl describe pods monolith
+```
+
+### Interacting with Pods
+By default, pods are allocated a private IP address and cannot be reached outside of the cluster. Use the kubectl port-forward command to map a local port to a port inside the monolith pod.
+
+on the 2nd terminal, run this command to set up port-forwarding:
+```
+kubectl port-forward monolith 10080:80
+```
+
+Now in the 1st terminal start talking to your pod using curl:
+```
+curl http://127.0.0.1:10080
+```
+
+curl -u user http://127.0.0.1:10080/login
+
+At the login prompt, use the super-secret password "password" to login.
+TOKEN=$(curl http://127.0.0.1:10080/login -u user|jq -r '.token')
+
+then
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:10080/secure
+
+See logs
+```
+$ kubectl logs monolith
+2019/07/23 09:41:21 Starting server...
+2019/07/23 09:41:21 Health service listening on 0.0.0.0:81
+2019/07/23 09:41:21 HTTP service listening on 0.0.0.0:80
+127.0.0.1:38478 - - [Tue, 23 Jul 2019 09:43:21 UTC] "GET / HTTP/1.1" curl/7.52.1
+127.0.0.1:38512 - - [Tue, 23 Jul 2019 09:43:52 UTC] "GET /secure HTTP/1.1" curl/7.52.1
+127.0.0.1:38526 - - [Tue, 23 Jul 2019 09:44:07 UTC] "GET /login HTTP/1.1" curl/7.52.1
+127.0.0.1:38556 - - [Tue, 23 Jul 2019 09:44:33 UTC] "GET /login HTTP/1.1" curl/7.52.1
+127.0.0.1:38562 - - [Tue, 23 Jul 2019 09:44:45 UTC] "GET /login HTTP/1.1" curl/7.52.1
+127.0.0.1:38572 - - [Tue, 23 Jul 2019 09:45:04 UTC] "GET /secure HTTP/1.1" curl/7.52.1
+```
+To see logs 
+kubectl logs -f monolith 
+
+Interactive Shell
+```
+kubectl exec monolith --stdin --tty -c monolith /bin/sh
+```
+
+### Services
+Pods aren't meant to be persistent. Services provide stable endpoints for Pods.
+The level of access a service provides to a set of pods depends on the Service's type. Currently there are three types:
+ClusterIP (internal) -- the default type means that this Service is only visible inside of the cluster,
+NodePort gives each node in the cluster an externally accessible IP and
+LoadBalancer adds a load balancer from the cloud provider which forwards traffic from the service to Nodes within it.
+
+Create Service
+```
+cd ~/orchestrate-with-kubernetes/kubernetes
+kubectl create secret generic tls-certs --from-file tls/
+kubectl create configmap nginx-proxy-conf --from-file nginx/proxy.conf
+kubectl create -f pods/secure-monolith.yaml
+
+cat services/monolith.yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: "monolith"
+spec:
+  selector:
+    app: "monolith"
+    secure: "enabled"
+  ports:
+    - protocol: "TCP"
+      port: 443
+      targetPort: 443
+      nodePort: 31000
+  type: NodePort
+ ```
+ 
+ Enable port in GCP
+ ```
+ gcloud compute firewall-rules create allow-monolith-nodeport \
+  --allow=tcp:31000
+  ```
+  
+First, get an external IP address for one of the nodes.
+  ```
+  $ gcloud compute instances list
+NAME                               ZONE           MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+gke-io-default-pool-b58e5577-3vs4  us-central1-b  n1-standard-1               10.128.0.4   35.188.35.189   RUNNING
+gke-io-default-pool-b58e5577-rkmj  us-central1-b  n1-standard-1               10.128.0.2   35.225.241.22   RUNNING
+```
+And try curl.
+
+### Adding Labels to Pods
+
+```
+kubectl get pods -l "app=monolith"
+kubectl get pods -l "app=monolith,secure=enabled"
+kubectl label pods secure-monolith 'secure=enabled'
+kubectl get pods secure-monolith --show-labels
+kubectl describe services monolith | grep Endpoints
+
+gcloud compute instances list
+```
+
+### Deploying Applications with Kubernetes
+We're going to break the monolith app into three separate pieces:
+
+auth - Generates JWT tokens for authenticated users.
+hello - Greet authenticated users.
+frontend - Routes traffic to the auth and hello services.
+
+```
+$ cat deployments/auth.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: auth
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: auth
+        track: stable
+    spec:
+      containers:
+        - name: auth
+          image: "kelseyhightower/auth:1.0.0"
+          ports:
+            - name: http
+              containerPort: 80
+            - name: health
+              containerPort: 81
+
+```
+
+Create Deployment
+```
+kubectl create -f deployments/auth.yaml
+
+Create service
+kubectl create -f services/auth.yaml
+```
+Now do the same thing to create and expose the hello deployment:
+```
+kubectl create -f deployments/hello.yaml
+kubectl create -f services/hello.yaml
+```
+And one more time to create and expose the frontend Deployment.
+
+kubectl create configmap nginx-frontend-conf --from-file=nginx/frontend.conf
+kubectl create -f deployments/frontend.yaml
+kubectl create -f deployments/frontend.yaml
+
+kubectl get services frontend
+curl -k https://<EXTERNAL-IP>
+    
 
