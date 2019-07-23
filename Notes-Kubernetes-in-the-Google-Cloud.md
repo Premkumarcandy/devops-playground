@@ -188,4 +188,26 @@ hello-server   LoadBalancer   10.0.5.52    35.239.160.169   8080:31523/TCP   82s
 Test with IP
 
 
-## 
+## Orchestrating the Cloud with Kubernetes
+Set Region
+```
+gcloud config set compute/zone us-central1-b
+```
+create a cluster
+```
+gcloud container clusters create io
+```
+
+Get the sample code
+```
+git clone https://github.com/googlecodelabs/orchestrate-with-kubernetes.git
+cd orchestrate-with-kubernetes/kubernetes
+ls
+```
+
+Create Deployment
+```
+kubectl create deployment nginx --image=nginx:1.10.0
+```
+
+
