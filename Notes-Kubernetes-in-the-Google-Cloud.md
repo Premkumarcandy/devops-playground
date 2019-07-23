@@ -423,3 +423,173 @@ kubectl get services frontend
 curl -k https://<EXTERNAL-IP>
     
 
+## Managing Deployments Using Kubernetes Engine
+Set zone
+gcloud config set compute/zone us-central1-a
+
+clone repo
+```
+git clone https://github.com/googlecodelabs/orchestrate-with-kubernetes.git
+cd orchestrate-with-kubernetes/kubernetes
+```
+Create Cluster
+```
+gcloud container clusters create bootcamp --num-nodes 5 --scopes "https://www.googleapis.com/auth/projecthosting,storage-rw"
+```
+
+Learn about deployment
+```
+kubectl explain deployment
+kubectl explain deployment.metadata.name
+```
+
+Edit vi deployments/auth.yaml
+...
+containers:
+- name: auth
+  image: kelseyhightower/auth:1.0.0
+...
+
+Create deployment
+```
+$ kubectl create -f deployments/auth.yaml
+$ kubectl get deployments
+NAME   DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+auth   1         1         1            1           2m41s
+```
+Get replica sets
+```
+$ kubectl get replicasets
+NAME              DESIRED   CURRENT   READY   AGE
+auth-6bb8dcd7bd   1         1         1       3m13s
+
+$ kubectl get pods
+NAME                    READY   STATUS    RESTARTS   AGE
+auth-6bb8dcd7bd-js66t   1/1     Running   0          3m50s
+```
+
+```
+kubectl create -f services/auth.yaml
+kubectl create -f deployments/hello.yaml
+kubectl create -f services/hello.yaml
+
+kubectl create secret generic tls-certs --from-file tls/
+kubectl create configmap nginx-frontend-conf --from-file=nginx/frontend.conf
+kubectl create -f deployments/frontend.yaml
+kubectl create -f services/frontend.yaml
+
+$ kubectl get services frontend
+NAME       TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)         AGE
+frontend   LoadBalancer   10.113.12.176   <pending>     443:31784/TCP   5s
+
+curl -ks https://<EXTERNAL-IP>
+```
+
+### Scale a Deployment
+```
+kubectl explain deployment.spec.replicas
+kubectl scale deployment hello --replicas=5
+kubectl get pods | grep hello- | wc -l
+kubectl scale deployment hello --replicas=3
+
+$ kubectl get pods | grep hello- 
+hello-5cbf94fc49-744qk      0/1     Terminating   0          25s
+hello-5cbf94fc49-9t7wg      1/1     Running       0          3m12s
+hello-5cbf94fc49-bvbkj      0/1     Terminating   0          25s
+hello-5cbf94fc49-dpp5d      1/1     Running       0          3m12s
+```
+
+### Rolling update
+https://cdn.qwiklabs.com/uc6D9jQ5Blkv8wf%2FccEcT35LyfKDHz7kFpsI4oHUmb0%3D
+```
+kubectl edit deployment hello
+```
+and make,
+```
+...
+containers:
+- name: hello
+  image: kelseyhightower/hello:2.0.0
+...
+```
+and see
+```
+$ kubectl get replicaset
+NAME                  DESIRED   CURRENT   READY   AGE
+auth-6bb8dcd7bd       1         1         1       11m
+frontend-77f46bf858   1         1         1       6m25s
+hello-5cbf94fc49      2         2         2       6m44s
+hello-677685c76       2         2         0       6s
+
+$ kubectl rollout history deployment/hello
+deployment.extensions/hello
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+```
+Pause it
+```
+kubectl rollout pause deployment/hello
+$ kubectl rollout status deployment/hello
+deployment "hello" successfully rolled out
+
+$ kubectl get pods -o jsonpath --template='{range .items[*]}{.metadata.name}{"\t"}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+auth-6bb8dcd7bd-js66t           kelseyhightower/auth:1.0.0
+frontend-77f46bf858-mh9rl               nginx:1.9.14
+hello-677685c76-9b4c8           kelseyhightower/hello:2.0.0
+hello-677685c76-nd879           kelseyhightower/hello:2.0.0
+hello-677685c76-rpn95           kelseyhightower/hello:2.0.0
+```
+Resume,
+```
+kubectl rollout resume deployment/hello
+```
+
+### Rollback an update
+```
+kubectl rollout undo deployment/hello
+$ kubectl rollout history deployment/hello
+deployment.extensions/hello
+REVISION  CHANGE-CAUSE
+2         <none>
+3         <none>
+
+$ kubectl get pods -o jsonpath --template='{range .items[*]}{.metadata.name}{"\t"}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+```
+### Canary deployments
+edit version to 1.0.0
+```
+cat deployments/hello-canary.yaml
+kubectl create -f deployments/hello-canary.yaml
+$kubectl get deployments
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+auth           1         1         1            1           15m
+frontend       1         1         1            1           11m
+hello          3         3         3            3           11m
+hello-canary   1         1         1            1           29s
+```
+Verify 
+```
+$ curl -ks https://`kubectl get svc frontend -o=jsonpath="{.status.loadBalancer.ingress[0].ip}"`/version
+{"version":"1.0.0"}
+```
+### Canary deployments in production - session affinity
+
+### Blue-green deployments
+```
+kubectl apply -f services/hello-blue.yaml
+```
+```
+$ kubectl create -f deployments/hello-green.yaml
+$ curl -ks https://`kubectl get svc frontend -o=jsonpath="{.status.loadBalancer.ingress[0].ip}"`/version
+{"version":"1.0.0"}
+$ kubectl apply -f services/hello-green.yaml
+service/hello configured
+```
+
+Blue-Green Rollback
+```
+kubectl apply -f services/hello-blue.yaml
+```
+
