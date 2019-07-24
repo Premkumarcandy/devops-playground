@@ -37,9 +37,8 @@
 
 
 ## Introduction to Docker
-
-docker run hello-world
-
+```
+$ docker run hello-world
 Unable to find image 'hello-world:latest' locally
 latest: Pulling from library/hello-world
 9db2ca6ccae0: Pull complete
@@ -61,7 +60,8 @@ d2ac9eaf5345        hello-world         "/hello"            19 seconds ago      
 d_yonath
 d4166a5d66b2        hello-world         "/hello"            About a minute ago   Exited (0) About a minute ago                       di
 stracted_knuth
-
+```
+Add DockerFile
 ```
 $ mkdir test && cd test
 $ cat > Dockerfile <<EOF
@@ -80,7 +80,7 @@ EXPOSE 80
 # Run app.js using node when the container launches
 CMD ["node", "app.js"]
 ```
-
+App details
 ```
 cat > app.js <<EOF
 const http = require('http');
@@ -106,7 +106,7 @@ EOF
 EOF
 ```
 
-Build it
+**Build it**
 ```
 docker build -t node-app:0.1 .
 ```
@@ -127,19 +127,20 @@ Server running at http://0.0.0.0:80/
 ```
 
 On another terminal:
+```
 $ curl http://localhost:4000
 Hello World
-
+```
 
 The container will run as long as the initial terminal is running. If you want the container to run in the background (not tied to the terminal's session), you need to specify the -d flag.
-
+```
 $ docker run -p 4000:80 --name my-app -d node-app:0.1
 3ef42db03f10920c8fa2645e4d3d3e58f03e4d28892bd66730885dcf62911d81
 
 $ docker ps
 CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                  NAMES
 3ef42db03f10        node-app:0.1        "node app.js"       19 seconds ago      Up 18 seconds       0.0.0.0:4000->80/tcp   my-app
-
+```
 Edit app.js
 ```
 ....
@@ -153,6 +154,7 @@ const server = http.createServer((req, res) => {
 and Docker build
 
 Tag project and push
+```
 $ docker tag node-app:0.2 gcr.io/qwiklabs-gcp-gcpd-5a0d22780ec3/node-
 app:0.2
 
@@ -165,9 +167,10 @@ node                                             6                   ab290b85306
 hello-world                                      latest              fce289e99eb9        6 months ago        1.84kB
 
 $ docker push gcr.io/qwiklabs-gcp-gcpd-5a0d22780ec3/node-app:0.2
-
+```
 
 Test it by removing all items from current space
+```
 docker stop $(docker ps -q)
 docker rm $(docker ps -aq)
 
@@ -175,7 +178,7 @@ docker rmi node-app:0.2 gcr.io/[project-id]/node-app node-app:0.1
 docker rmi node:6
 docker rmi $(docker images -aq) # remove remaining images
 docker images
-
+```
 Now pull from registry
 ```
 docker pull gcr.io/[project-id]/node-app:0.2
