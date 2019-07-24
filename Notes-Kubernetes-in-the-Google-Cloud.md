@@ -577,20 +577,331 @@ $ curl -ks https://`kubectl get svc frontend -o=jsonpath="{.status.loadBalancer.
 ### Canary deployments in production - session affinity
 
 ### Blue-green deployments
+https://cdn.qwiklabs.com/POW8Q247ZKNY%2ByHIartCsoEu8MAih7k4u1twusCx6pw%3D
 ```
 kubectl apply -f services/hello-blue.yaml
 ```
+Updating using Blue-Green Deployment
 ```
 $ kubectl create -f deployments/hello-green.yaml
 $ curl -ks https://`kubectl get svc frontend -o=jsonpath="{.status.loadBalancer.ingress[0].ip}"`/version
 {"version":"1.0.0"}
+```
+Now, update the service to point to the new version:
+```
 $ kubectl apply -f services/hello-green.yaml
 service/hello configured
 ```
-
-Blue-Green Rollback
+With the service is updated, the "green" deployment will be used immediately. You can now verify that the new version is always being used.
+```
+curl -ks https://`kubectl get svc frontend -o=jsonpath="{.status.loadBalancer.ingress[0].ip}"`/version
+```
+#### Blue-Green Rollback
 ```
 kubectl apply -f services/hello-blue.yaml
 ```
+Once you have updated the service, your rollback will have been successful. Again, verify that the right version is now being used:
+```
+curl -ks https://`kubectl get svc frontend -o=jsonpath="{.status.loadBalancer.ingress[0].ip}"`/version
+```
+
 
 ## Continuous Delivery with Jenkins in Kubernetes Engine
+https://cdn.qwiklabs.com/1b%2B9D20QnfRjAF8c6xlXmexot7TDcOsYzsRwp%2FH4ErE%3D
+https://cloud.google.com/solutions/jenkins-on-container-engine
+
+### What is Kubernetes Engine?
+Kubernetes Engine is GCP's hosted version of Kubernetes - a powerful cluster manager and orchestration system for containers. Kubernetes is an open source project that can run on many different environments—from laptops to high-availability multi-node clusters; from virtual machines to bare metal. As mentioned before, Kubernetes apps are built on containers - these are lightweight applications bundled with all the necessary dependencies and libraries to run them. This underlying structure makes Kubernetes applications highly available, secure, and quick to deploy—an ideal framework for cloud developers.
+
+### What is Jenkins?
+Jenkins is an open-source automation server that lets you flexibly orchestrate your build, test, and deployment pipelines. Jenkins allows developers to iterate quickly on projects without worrying about overhead issues that can stem from continuous delivery.
+
+
+Set location 
+gcloud config set compute/zone us-central1-f
+
+Then clone the lab's sample code into your Cloud Shell:
+
+git clone https://github.com/GoogleCloudPlatform/continuous-deployment-on-kubernetes.git
+
+Now change to the correct directory:
+
+cd continuous-deployment-on-kubernetes
+
+Create a Kubernetes Cluster 
+```
+gcloud container clusters create jenkins-cd \
+--num-nodes 2 \
+--machine-type n1-standard-2 \
+--scopes "https://www.googleapis.com/auth/projecthosting,cloud-platform"
+```
+Check cluter
+```
+$ gcloud container clusters list
+NAME        LOCATION       MASTER_VERSION  MASTER_IP      MACHINE_TYPE   NODE_VERSION   NUM_NODES  STATUS
+jenkins-cd  us-central1-f  1.12.8-gke.10   35.226.20.249  n1-standard-2  1.12.8-gke.10  2          RUNNING
+```
+
+Get Credentials
+```
+$ gcloud container clusters get-credentials jenkins-cd
+
+Fetching cluster endpoint and auth data.
+kubeconfig entry generated for jenkins-cd.
+
+$ kubectl cluster-info
+Kubernetes master is running at https://35.226.20.249
+GLBCDefaultBackend is running at https://35.226.20.249/api/v1/namespaces/kube-system/services/default-http-backend:http/proxy
+Heapster is running at https://35.226.20.249/api/v1/namespaces/kube-system/services/heapster/proxy
+KubeDNS is running at https://35.226.20.249/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+Metrics-server is running at https://35.226.20.249/api/v1/namespaces/kube-system/services/https:metrics-server:/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+```
+
+
+### Install Helm
+```
+wget https://storage.googleapis.com/kubernetes-helm/helm-v2.14.1-linux-amd64.tar.gz
+tar zxfv helm-v2.14.1-linux-amd64.tar.gz
+cp linux-amd64/helm .
+```
+
+Add yourself as a cluster administrator in the cluster's RBAC so that you can give Jenkins permissions in the cluster:
+```
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
+```
+Grant Tiller, the server side of Helm, the cluster-admin role in your cluster:
+```
+kubectl create serviceaccount tiller --namespace kube-system
+kubectl create clusterrolebinding tiller-admin-binding --clusterrole=cluster-admin --serviceaccount=kube-system:tiller
+```
+Initialize Helm. This ensures that the server side of Helm (Tiller) is properly installed in your cluster.
+```
+./helm init --service-account=tiller
+./helm update
+
+./helm version
+```
+
+### Configure and Install Jenkins
+Use the Helm CLI to deploy the chart with your configuration settings.
+```
+./helm install -n cd stable/jenkins -f jenkins/values.yaml --version 1.2.2 --wait
+```
+Check pods
+```
+$ kubectl get pods
+NAME                          READY   STATUS    RESTARTS   AGE
+cd-jenkins-546f5559b4-cxb4c   1/1     Running   0          2m14s
+```
+Configure the Jenkins service account to be able to deploy to the cluster.
+```
+kubectl create clusterrolebinding jenkins-deploy --clusterrole=cluster-admin --serviceaccount=default:cd-jenkins
+```
+Setup port forwarding
+```
+export POD_NAME=$(kubectl get pods --namespace default -l "app.kubernetes.io/component=jenkins-master" -l "app.kubernetes.io/instance=cd" -o jsonpath="{.items[0].metadata.name}")
+kubectl port-forward $POD_NAME 8080:8080 >> /dev/null &
+```
+Check services
+```
+$ kubectl get svc
+NAME               TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)     AGE
+cd-jenkins         ClusterIP   10.0.14.213   <none>        8080/TCP    3m51s
+cd-jenkins-agent   ClusterIP   10.0.9.81     <none>        50000/TCP   3m51s
+kubernetes         ClusterIP   10.0.0.1      <none>        443/TCP     24m
+```
+*Notice that this service exposes ports 8080 and 50000 for any pods that match the selector. This will expose the Jenkins web UI and builder/agent registration ports within the Kubernetes cluster. Additionally, the jenkins-ui services is exposed using a ClusterIP so that it is not accessible from outside the cluster.*
+
+#### Connect to Jenkins
+Get the token
+```
+printf $(kubectl get secret cd-jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode);echo
+```
+
+To get to the Jenkins user interface, click on the Web Preview button in cloud shell, then click “Preview on port 8080”:
+
+#### Understanding the Application
+https://cdn.qwiklabs.com/P1T5JBWWprA4iLf%2FB5%2BO6as7otLE25YBde57gzZwSz4%3D
+
+#### Deploying the Application
+- Production: The live site that your users access.
+- Canary: A smaller-capacity site that receives only a percentage of your user traffic. Use this environment to validate your software with live traffic before it's released to all of your users.
+
+
+```
+$ cd sample-app
+$ kubectl create ns production
+$ kubectl apply -f k8s/production -n production
+$ kubectl apply -f k8s/canary -n production
+$ kubectl apply -f k8s/services -n production
+```
+
+Scale up the production environment frontends by running the following command:
+```
+$ kubectl scale deployment gceme-frontend-production -n production --replicas 4
+$ kubectl get pods -n production -l app=gceme -l role=frontend
+NAME                                         READY   STATUS    RESTARTS   AGE
+gceme-frontend-canary-84cc88cccf-sx6lw       1/1     Running   0          64s
+gceme-frontend-production-5df96c664d-ldqgd   1/1     Running   0          10s
+gceme-frontend-production-5df96c664d-r4mfl   1/1     Running   0          10s
+gceme-frontend-production-5df96c664d-vp7g6   1/1     Running   0          77s
+gceme-frontend-production-5df96c664d-xv55j   1/1     Running   0          10s
+
+$ kubectl get pods -n production -l app=gceme -l role=backend
+NAME                                       READY   STATUS    RESTARTS   AGE
+gceme-backend-canary-688b9c69d9-rc6m6      1/1     Running   0          84s
+gceme-backend-production-d6559978d-cpkvg   1/1     Running   0          97s
+
+$ kubectl get service gceme-frontend -n production
+NAME             TYPE           CLUSTER-IP   EXTERNAL-IP     PORT(S)        AGE
+gceme-frontend   LoadBalancer   10.0.10.69   35.238.66.129   80:31024/TCP   74s
+```
+Paste External IP into a browser to see the info card displayed on a card—you should get a similar page:
+https://cdn.qwiklabs.com/dfXfZfxRk0UMSTZm8FyIaLFsHla7AlUmxHO70UTOFjk%3D
+
+Now, store the frontend service load balancer IP in an environment variable for use later:
+```
+export FRONTEND_SERVICE_IP=$(kubectl get -o jsonpath="{.status.loadBalancer.ingress[0].ip}" --namespace=production services gceme-frontend)
+
+curl http://$FRONTEND_SERVICE_IP/version
+```
+
+### Creating the Jenkins Pipeline
+Create a copy of the gceme sample app and push it to a Cloud Source Repository:
+```
+gcloud source repos create default
+git init
+git config credential.helper gcloud.sh
+git remote add origin https://source.developers.google.com/p/$DEVSHELL_PROJECT_ID/r/default
+
+git config --global user.email "[EMAIL_ADDRESS]"
+git config --global user.name "[USERNAME]"
+
+git add .
+git commit -m "Initial commit"
+git push origin master
+```
+#### Adding your service account credentials
+Step 1: In the Jenkins user interface, click Credentials in the left navigation.
+
+Step 2: Click Jenkins stored_scoped_cred.png
+
+Step 3: Click Global credentials (unrestricted).
+
+Step 4: Click Add Credentials in the left navigation.
+
+Step 5: Select Google Service Account from metadata from the Kind drop-down and click OK.
+
+The global credentials has been added. The name of the credential is the GCP Project ID found in the CONNECTION DETAILS section of the lab.
+
+global_cred.png
+#### Creating the Jenkins job
+
+Navigate to your Jenkins user interface and follow these steps to configure a Pipeline job.
+
+Step 1: Click Jenkins > New Item in the left navigation:
+
+86e92964a4599231.png
+
+Step 2: Name the project sample-app, then choose the Multibranch Pipeline option and click OK.
+
+Step 3: On the next page, in the Branch Sources section, click Add Source and select git.
+
+Step 4: Paste the HTTPS clone URL of your sample-app repo in Cloud Source Repositories into the Project Repository field. Replace [PROJECT_ID] with your GCP Project ID:
+
+https://source.developers.google.com/p/[PROJECT_ID]/r/default
+
+Step 5: From the Credentials drop-down, select the name of the credentials you created when adding your service account in the previous steps.
+
+Step 6: Under Scan Multibranch Pipeline Triggers section, check the Periodically if not otherwise run box and set the Interval value to 1 minute.
+
+Step 7: Your job configuration should look like this:
+
+general_tab_jenkins.png
+
+branch_source_jenkins.png
+
+build_conf_jenkins.png
+
+Step 8: Click Save leaving all other options with their defaults
+
+After you complete these steps, a job named "Branch indexing" runs. This meta-job identifies the branches in your repository and ensures changes haven't occurred in existing branches. If you click sample-app in the top left, the master job should be seen.
+
+Note: The first run of the master job might fail until you make a few code changes in the next step.
+
+You have successfully created a Jenkins pipeline! Next, you'll create the development environment for continuous integration.
+
+### Creating the Development Environment
+
+#### Creating a development branch
+```
+git checkout -b new-feature
+```
+Edit Jenkinsfile and add project ID.
+
+#### Modify the site
+o demonstrate changing the application, you will change the gceme cards from blue to orange.
+
+Open html.go:
+```
+vi html.go
+```
+Change the two instances of <div class="card blue"> with following:
+```
+<div class="card orange">
+```
+Open main.go and change version
+```
+### Kick off Deployment
+Commit and push your changes:
+```
+git add Jenkinsfile html.go main.go
+
+git commit -m "Version 2.0.0"
+
+git push origin new-feature
+```
+kubectl proxy &
+curl \
+http://localhost:8001/api/v1/namespaces/new-feature/services/gceme-frontend:80/proxy/version
+
+### Deploying a Canary Release
+Create a canary branch and push it to the Git server:
+
+git checkout -b canary
+
+git push origin canary
+
+In Jenkins, you should see the canary pipeline has kicked off. Once complete, you can check the service URL to ensure that some of the traffic is being served by your new version. You should see about 1 in 5 requests (in no particular order) returning version 2.0.0.
+
+export FRONTEND_SERVICE_IP=$(kubectl get -o \
+jsonpath="{.status.loadBalancer.ingress[0].ip}" --namespace=production services gceme-frontend)
+```
+while true; do curl http://$FRONTEND_SERVICE_IP/version; sleep 1; done
+
+### Deploying to production
+Create a canary branch and push it to the Git server:
+```
+git checkout master
+
+git merge canary
+
+git push origin master
+```
+In Jenkins, you should see the master pipeline has kicked off. Once complete, you can check the service URL to ensure that all of the traffic is being served by your new version, 2.0.0.
+```
+export FRONTEND_SERVICE_IP=$(kubectl get -o \
+jsonpath="{.status.loadBalancer.ingress[0].ip}" --namespace=production services gceme-frontend)
+
+while true; do curl http://$FRONTEND_SERVICE_IP/version; sleep 1; done
+```
+```
+$ kubectl get service gceme-frontend -n production
+NAME             TYPE           CLUSTER-IP   EXTERNAL-IP     PORT(S)        AGE
+gceme-frontend   LoadBalancer   10.0.10.69   35.238.66.129   80:31024/TCP   31m
+
+```
+
