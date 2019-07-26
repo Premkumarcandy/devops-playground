@@ -57,6 +57,57 @@ Why ?
 - small releases instead of big releases
 - continuous testing
 
+### Continuous Delivery and Continuous Deployment
+- code is always ready for deployment
+- frequently deploying small code changes
+
+- Automated deployment
+- if issue, automatic roll back
+
+Why ?
+- faster time-to-market
+- fewer problems caused by deployment process
+- lower risk
+- Reliable rollbacks
+
+### Infrastructure As Code
+- manage and provision infrastructure via code
+- provisioning and managing will be done via automation
+
+Why ?
+- consistency
+- re-usability
+- scalability
+- self-documenting
+- simplify complex infrastructure
+
+### Configuration Management
+- automated infrastructure management
+- maintainable way
+
+Why ?
+- Save time
+- Insight
+- maintainability
+- less configuration drifts
+
+### Orchestration
+- orchestrate build and automate
+
+Why ?
+- Scalability
+- Stability
+- Save Time
+- Self-service
+
+### Monitoring
+- Collect data like usage of CPU< memory, disk i/o etc
+
+Why ?
+- Fast Recovery
+- Better root cause analysis
+- Visibility across teams
+- Automated response - self healing
 
 
 ### DevOps Practices
