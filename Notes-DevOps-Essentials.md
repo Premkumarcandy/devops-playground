@@ -35,6 +35,29 @@ Devlopers -> QA team -> Operations
 - Automated monitoring
 - Auto-rollback previous version
 
+### Build Automation
+Automate the process of preparing code for deployment.
+
+Why ? 
+- fast
+- consistent
+- repeatable
+- portable
+- reliable
+
+### Continuous Integration
+- frequent code changes
+
+- Using a CI Server
+- Multiple times a day
+- feedback on merge and build
+
+Why ?
+- Easy to detect issue with smaller changes
+- small releases instead of big releases
+- continuous testing
+
+
 
 ### DevOps Practices
 <place holder>
