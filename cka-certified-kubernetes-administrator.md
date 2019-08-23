@@ -39,6 +39,9 @@ Config file ```/etc/kubernetes/manifests/kube-apiserver.yaml```
 - continuous monitoring of cluster and components
 - remediation
 
+There are other controllers under kube controller manager like deployment controller, job controller, name-space controller etc.
+
+Check controller manager status by ```kubectl get pods -n kube-system```.
 ### Node Controllder
 **Node monitoring**
 - will monitor status of every nodes in the cluster every 5 sec; if not reachable then it will wait for 40 sec (grace period) before marking as unreachable
@@ -47,9 +50,36 @@ Config file ```/etc/kubernetes/manifests/kube-apiserver.yaml```
 ### Replication Controller
 - Monitor the status of replicasets and make sure desired number of replicas are running on nodes.
 
-There are other controllers under kube controller manager like deployment controller, job controller, name-space controller etc.
+- Replication controller and Replica Sets -> for same purpose but not same
+    - Replication controller is the old technology
+    - Replica set is the new recommended method
 
-Check controller manager status by ```kubectl get pods -n kube-system```.
+Sample rc-def.yml
+```
+apiVerion: v1
+kind: ReplicationController
+metadata:
+  name: myapp-rc
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:
+      name: myapp
+      label:
+        app: myapp
+        type: front-end
+    spec:
+      containers:
+      - name: nginx-controller
+        image: nginx
+
+```
+#### Load balancing and Scaling
+
+
+
  
 ## Kube Scheduler
 - kube scheduler doesnt place pods on nodes, instead it will decide where to place the pods.
@@ -77,4 +107,19 @@ Check controller manager status by ```kubectl get pods -n kube-system```.
 - k8s doesn't deploy containers directly to nodes, instead it will encapsulated in an object called pod. 
 - smallest object in kubernetes
 
+
+##Practice Test
+```
+# create an nginx pod
+kubectl run nginx --image=nginx --generator=run-pod/v1
+
+# check pods in current project
+kubectl get pods
+
+# delete a pod
+kubectl delete pod webapp
+
+# Create a new pod with the name 'redis' and with the image 'redis123'
+kubectl run redis --image=redis123 --generator=run-pod/v1
+```
  
