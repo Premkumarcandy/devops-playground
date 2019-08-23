@@ -29,3 +29,8 @@ kubecrl exec etcd-master -n kube-system etcdctl get / --prefix -keys-only
 - in a HA system, there will be multiple master nodes and in the cluster and each master node will have an etcd pod running for HA.
 
 ## kube-api server
+- kubectl command is hitting on kube-api server 
+- kube-api server will authenticate and validate the request and send back the result.
+- It also assist to retrive information, update etcd etc
+
+Config file ```/etc/kubernetes/manifests/kube-apiserver.yaml```
