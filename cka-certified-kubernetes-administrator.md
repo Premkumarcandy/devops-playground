@@ -61,3 +61,20 @@ Check controller manager status by ```kubectl get pods -n kube-system```.
 - ```ps -aux|grep kube-scheduler```
 
 ## Kubelet
+- like a captain of ship
+- enquire status and report back to master node 
+- **kubeadm install will not install kubelet by default**; you must always need to manually install it.
+
+## Kube Proxy
+- pod network
+- pods are accessible by service IP instead of pod IP
+- kube-proxy is running on all nodes
+- everytime a new service is created, kube-proxy will coordinate to create the same rule (iptables) on other podes so that pods behind the service will be accessible on all nodes.
+- kubeadm will deploy kube-proxy under kube-system namespace
+- kube-proxy is deployed a daemonset and will be deployed on all nodes in the cluster - ```kubectl get daemonset -n kube-system```
+
+## pods
+- k8s doesn't deploy containers directly to nodes, instead it will encapsulated in an object called pod. 
+- smallest object in kubernetes
+
+ 
