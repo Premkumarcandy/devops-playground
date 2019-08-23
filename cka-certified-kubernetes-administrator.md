@@ -48,6 +48,14 @@ Config file ```/etc/kubernetes/manifests/kube-apiserver.yaml```
 - Monitor the status of replicasets and make sure desired number of replicas are running on nodes.
 
 There are other controllers under kube controller manager like deployment controller, job controller, name-space controller etc.
+
 Check controller manager status by ```kubectl get pods -n kube-system```.
  
+## Kube Scheduler
+- kube scheduler doesnt place pods on nodes, instead it will decide where to place the pods.
+- placing pods to nodes is the job of kubelet
 
+**How to see kube-scheduler options**
+- ```/etc/kubernetes/manifests/kube-scheduler.yaml```
+- ```systemctl status kube-scheduler``` - pod defenition file
+- ```ps -aux|grep kube-scheduler```
