@@ -15,4 +15,17 @@ Distributed reliable key-value store that is simple, secure and fast
 - etcd will start a service and listen on port 2379
 - etcdctl 
     ./etcdctl set key1 value1
-    
+
+### etcd in k8s
+- if you install k8s manually, etcd has to install manually
+- if k8s installation is by using kubeadm, then kubeadm will install and configure etcd
+
+- etcd will be running under kube-system namespace
+```
+kubectl get pods -n kube-system 
+    # you will see a pod running with name 'etcd-master'
+kubecrl exec etcd-master -n kube-system etcdctl get / --prefix -keys-only
+```
+- in a HA system, there will be multiple master nodes and in the cluster and each master node will have an etcd pod running for HA.
+
+## kube-api server
