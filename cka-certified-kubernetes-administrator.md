@@ -59,3 +59,5 @@ Check controller manager status by ```kubectl get pods -n kube-system```.
 - ```/etc/kubernetes/manifests/kube-scheduler.yaml```
 - ```systemctl status kube-scheduler``` - pod defenition file
 - ```ps -aux|grep kube-scheduler```
+
+## Kubelet
