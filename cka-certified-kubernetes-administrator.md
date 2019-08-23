@@ -34,3 +34,20 @@ kubecrl exec etcd-master -n kube-system etcdctl get / --prefix -keys-only
 - It also assist to retrive information, update etcd etc
 
 Config file ```/etc/kubernetes/manifests/kube-apiserver.yaml```
+
+## kube controller manager
+- continuous monitoring of cluster and components
+- remediation
+
+### Node Controllder
+**Node monitoring**
+- will monitor status of every nodes in the cluster every 5 sec; if not reachable then it will wait for 40 sec (grace period) before marking as unreachable
+- if unreachable for 5 min, it will evict the pods from that node and deploy to other available nodes
+
+### Replication Controller
+- Monitor the status of replicasets and make sure desired number of replicas are running on nodes.
+
+There are other controllers under kube controller manager like deployment controller, job controller, name-space controller etc.
+Check controller manager status by ```kubectl get pods -n kube-system```.
+ 
+
