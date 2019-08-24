@@ -78,9 +78,11 @@ spec:
 ```
 
 **Sample replicationset-def.yml**
-*See the difference and options from replicationcontrollder like ```selector``` etc. 
+
+*See the difference and options from replicationcontrollder like ```selector``` etc.*
+
 ```
-apiVerion: app/v1
+apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: myapp-replicaset
@@ -111,8 +113,10 @@ kind: pod
 ```
 
 #### Load balancing and Scaling
-
-
+You can scale application by below methods.
+- changing the ```replicas``` option in replicaset defenition. And then run ```kubectl replace -f replicaset-defenition.yml```
+- run ```kubectl scale --replicas=6 -f replicaset-defenition.yml```
+- run ```kubectl scale --replicas=6 replicaset myapp-replicaset``` (Note: this one will not update replica details in replicaset defenition file.)
 
  
 ## Kube Scheduler
