@@ -78,6 +78,7 @@ spec:
 ```
 
 **Sample replicationset-def.yml**
+*See the difference and options from replicationcontrollder like ```selector``` etc. 
 ```
 apiVerion: app/v1
 kind: ReplicaSet
@@ -98,7 +99,17 @@ spec:
       - name: nginx-controller
         image: nginx
   replicas: 3
+  selector:
+    matchLabels:
+      type: front-end
 ```
+
+**Sample pod-defenition.yml**
+```
+apiVerion: v1
+kind: pod
+```
+
 #### Load balancing and Scaling
 
 
