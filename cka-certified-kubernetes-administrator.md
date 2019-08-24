@@ -54,7 +54,7 @@ Check controller manager status by ```kubectl get pods -n kube-system```.
     - Replication controller is the old technology
     - Replica set is the new recommended method
 
-Sample rc-def.yml
+**Sample rc-def.yml**
 ```
 apiVerion: v1
 kind: ReplicationController
@@ -74,7 +74,30 @@ spec:
       containers:
       - name: nginx-controller
         image: nginx
+  replicas: 3
+```
 
+**Sample replicationset-def.yml**
+```
+apiVerion: app/v1
+kind: ReplicaSet
+metadata:
+  name: myapp-replicaset
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:
+      name: myapp
+      label:
+        app: myapp
+        type: front-end
+    spec:
+      containers:
+      - name: nginx-controller
+        image: nginx
+  replicas: 3
 ```
 #### Load balancing and Scaling
 
